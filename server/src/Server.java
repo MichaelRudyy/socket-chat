@@ -1,8 +1,11 @@
+import javax.xml.crypto.Data;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.StringTokenizer;
 
 
 /**
@@ -13,6 +16,7 @@ import java.net.Socket;
 public class Server {
 
     private ServerSocket serverSocket;
+    private static HashMap<String, ClientHandler> clientMap;
 
     public Server(int port) throws IOException {
         serverSocket = new ServerSocket(port);
@@ -26,8 +30,10 @@ public class Server {
             while (true) {
                 System.out.println("Ready for new one");
                 socket = serverSocket.accept();
+
                 ClientHandler client = new ClientHandler(socket,
                         "Client " + count);
+                clientMap.put(String.valueOf(count), client);
 
                 Thread clientThread = new Thread(client);
                 clientThread.start();
@@ -37,6 +43,10 @@ public class Server {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static ClientHandler getClientHandlerByID(String id) {
+        return clientMap.get(id);
     }
 }
 
@@ -48,14 +58,14 @@ class ClientHandler implements Runnable {
     private DataInputStream in;
     private DataOutputStream out;
 
-    public ClientHandler(Socket socket, String name, DataInputStream inputStream,DataOutputStream outputStream) {
+    public ClientHandler(Socket socket, String name, DataInputStream inputStream, DataOutputStream outputStream) {
         this.socket = socket;
         this.name = name;
         this.in = inputStream;
         this.out = outputStream;
     }
 
-    public ClientHandler(Socket socket,String name) throws IOException {
+    public ClientHandler(Socket socket, String name) throws IOException {
         this.socket = socket;
         this.name = name;
         this.in = new DataInputStream(socket.getInputStream());
@@ -65,18 +75,25 @@ class ClientHandler implements Runnable {
     @Override
     public void run() {
 
-        String message = "";
+        String request = "";
 
         try {
-            while (!message.equals("0")) {
-                System.out.println(name + " : Waiting for message from " + this.socket);
-                message = in.readUTF();
-                System.out.println(name + " : Message is " + message);
+            while (!request.equals("logout")) {
+                StringTokenizer tokenizer = new StringTokenizer(request, "#");
+                String receiverID = tokenizer.nextToken();
+                String senderID = tokenizer.nextToken();
+                String message = tokenizer.nextToken();
+                DataOutputStream out = Server.getClientHandlerByID(receiverID).out;
+                out.writeUTF(senderID + " : " + message);
             }
             socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+    }
+
+    private void connectToUser(int id) {
 
     }
 }
