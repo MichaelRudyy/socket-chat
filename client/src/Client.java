@@ -2,53 +2,87 @@ import sun.jvm.hotspot.HelloWorld;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class Client {
 
     private Socket socket;
+    private String name;
+    private String id;
+    private DataInputStream inputStream;
+    private DataOutputStream outputStream;
+    private BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
+
 
     public Client(String adress, int port) throws IOException {
-        socket = new Socket(adress, port);
-        System.out.println("Connected to Socket " + adress + ":" + port);
+        this.socket = new Socket(adress, port);
+
+        System.out.println(socket.isClosed());
+
+        System.out.println("Connected to Socket " + adress + ":" + port + "\n" +
+                "Write a name of user : ");
+
+        this.inputStream = new DataInputStream(socket.getInputStream());
+        this.outputStream = new DataOutputStream(socket.getOutputStream());
+
+        this.name = consoleReader.readLine();
+        outputStream.writeUTF(name);
+        this.id = inputStream.readUTF();
+
+
+        System.out.println(this);
 
     }
 
     public void start() throws IOException {
 
-
-        try (BufferedReader inputStream = new BufferedReader(new InputStreamReader(System.in));
-             DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream())) {
-
-            while (!message.equals("0")) {
-                System.out.println("Write message: ");
-                message = inputStream.readLine();
-                outputStream.writeUTF(message);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("Closing connection");
-
+        Scanner scn = new Scanner(System.in);
 
         Thread sendMessageThread = new Thread(() -> {
-            try (BufferedReader inputStream = new BufferedReader(new InputStreamReader(System.in));
-                 DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream())) {
-
+            while (true) {
                 System.out.println("Write message: ");
-                String message = inputStream.readLine();
-                outputStream.writeUTF (message);
-
-            } catch (IOException e) {
-                e.printStackTrace();
+                String message = scn.nextLine();
+                try {
+                    if (message.equals("all")) {
+                        outputStream.writeUTF(message);
+                    }else if (message.equals("logout")){
+                        outputStream.writeUTF(message);
+                        socket.close();
+                        break;
+                    } else {
+                        System.out.println("to id?");
+                        String recieverID = scn.nextLine();
+                        outputStream.writeUTF("mes#" + id + "#" + recieverID + "#" + message);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-            ;
-        };
+        });
 
         Thread receiveMessageThread = new Thread(() -> {
-
+            while (true) {
+                try {
+                    String message = inputStream.readUTF();
+                    System.out.println(message);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         });
-        socket.close();
 
+        receiveMessageThread.start();
+        sendMessageThread.start();
+
+    }
+
+
+    @Override
+    public String toString() {
+        return "Client{" +
+                "socket=" + socket +
+                ", name='" + name + '\'' +
+                ", id='" + id + '\'' +
+                '}';
     }
 }
